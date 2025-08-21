@@ -1,9 +1,218 @@
-### Reservation System API
+### Reservation System API Tests
 
-# Base URL for local development
-@baseUrl = http://localhost:8080
-
-### Health Check
-GET {{baseUrl}}/actuator/health
+### 1. Create a room
+POST http://localhost:8080/api/rooms
 Content-Type: application/json
-###
+
+{
+  "name": "Meeting Room A"
+}
+
+> {%
+client.global.set("room1Uuid", response.body.uuid);
+client.test("Room created successfully", function() {
+    client.assert(response.status === 201, "Response status is not 201");
+    client.assert(response.body.uuid, "Room UUID is missing");
+});
+%}
+
+### 2. Get all rooms
+GET http://localhost:8080/api/rooms
+
+> {%
+client.test("Rooms retrieved successfully", function() {
+    client.assert(response.status === 200, "Response status is not 200");
+});
+%}
+
+### 3. Create first reservation (1.7.2026 06:00–08:00 UTC)
+POST http://localhost:8080/api/reservations
+Content-Type: application/json
+
+{
+  "roomUuid": "{{room1Uuid}}",
+  "startTime": "2026-07-01T06:00:00",
+  "endTime": "2026-07-01T08:00:00",
+  "name": "Team Meeting"
+}
+
+> {%
+client.global.set("reservation1Uuid", response.body.uuid);
+client.test("Reservation created successfully", function() {
+    client.assert(response.status === 201, "Response status is not 201");
+    client.assert(response.body.uuid, "Reservation UUID is missing");
+});
+%}
+
+### 4. Create second reservation (1.7.2026 09:00–10:00 UTC)
+POST http://localhost:8080/api/reservations
+Content-Type: application/json
+
+{
+  "roomUuid": "{{room1Uuid}}",
+  "startTime": "2026-07-01T09:00:00",
+  "endTime": "2026-07-01T10:00:00",
+  "name": "Client Meeting"
+}
+
+> {%
+client.global.set("reservation2Uuid", response.body.uuid);
+client.test("Second reservation created successfully", function() {
+    client.assert(response.status === 201, "Response status is not 201");
+    client.assert(response.body.uuid, "Reservation UUID is missing");
+});
+%}
+
+### 5. Create reservation for 08:00–09:00 UTC (should succeed)
+POST http://localhost:8080/api/reservations
+Content-Type: application/json
+
+{
+  "roomUuid": "{{room1Uuid}}",
+  "startTime": "2026-07-01T08:00:00",
+  "endTime": "2026-07-01T09:00:00",
+  "name": "Gap Meeting"
+}
+
+> {%
+client.global.set("reservation3Uuid", response.body.uuid);
+client.test("Gap reservation created successfully", function() {
+    client.assert(response.status === 201, "Response status is not 201");
+    client.assert(response.body.uuid, "Reservation UUID is missing");
+});
+%}
+
+### 6. Create reservation (1.7.2026 07:00–09:00 UTC) - This should fail with HTTP 409
+POST http://localhost:8080/api/reservations
+Content-Type: application/json
+
+{
+  "roomUuid": "{{room1Uuid}}",
+  "startTime": "2026-07-01T07:00:00",
+  "endTime": "2026-07-01T09:00:00",
+  "name": "Conflict Meeting"
+}
+
+> {%
+client.test("Reservation conflict detected", function() {
+    client.assert(response.status === 409, "Response status is not 409 - conflict not detected");
+});
+%}
+
+### 7. Find available rooms for 1.7.2026 06:00–07:00 UTC (should not return the room with existing reservation)
+POST http://localhost:8080/api/rooms/available
+Content-Type: application/json
+
+{
+  "startTime": "2026-07-01T06:00:00",
+  "endTime": "2026-07-01T07:00:00"
+}
+
+> {%
+client.test("No available rooms during conflicting time", function() {
+    client.assert(response.status === 200, "Response status is not 200");
+    client.assert(response.body.length === 0, "Should not return any available rooms during conflicting time");
+});
+%}
+
+### 8. Find available rooms for 1.7.2026 10:00–11:00 UTC (should return the room)
+POST http://localhost:8080/api/rooms/available
+Content-Type: application/json
+
+{
+  "startTime": "2026-07-01T10:00:00",
+  "endTime": "2026-07-01T11:00:00"
+}
+
+> {%
+client.test("Room available after reservation ends", function() {
+    client.assert(response.status === 200, "Response status is not 200");
+    client.assert(response.body.length > 0, "Should return available rooms after reservation ends");
+});
+%}
+
+### 9. Get all reservations
+GET http://localhost:8080/api/reservations
+
+> {%
+client.test("Reservations retrieved successfully", function() {
+    client.assert(response.status === 200, "Response status is not 200");
+    client.assert(response.body.length > 0, "Should return at least one reservation");
+});
+%}
+
+### 10. Create another room
+POST http://localhost:8080/api/rooms
+Content-Type: application/json
+
+{
+  "name": "Conference Room B"
+}
+
+> {%
+client.global.set("room2Uuid", response.body.uuid);
+client.test("Second room created successfully", function() {
+    client.assert(response.status === 201, "Response status is not 201");
+    client.assert(response.body.uuid, "Room UUID is missing");
+});
+%}
+
+### 11. Find available rooms for 1.7.2026 06:00–07:00 UTC (should return the new room)
+POST http://localhost:8080/api/rooms/available
+Content-Type: application/json
+
+{
+  "startTime": "2026-07-01T06:00:00",
+  "endTime": "2026-07-01T07:00:00"
+}
+
+> {%
+client.test("New room available during conflicting time", function() {
+    client.assert(response.status === 200, "Response status is not 200");
+    client.assert(response.body.length > 0, "Should return the new room as available");
+    // Check if the new room is in the available rooms
+    const availableRooms = response.body;
+    const newRoomFound = availableRooms.some(room => room.uuid === client.global.get("room2Uuid"));
+    client.assert(newRoomFound, "New room should be available during conflicting time");
+});
+%}
+
+### 12. Create reservation in the second room
+POST http://localhost:8080/api/reservations
+Content-Type: application/json
+
+{
+  "roomUuid": "{{room2Uuid}}",
+  "startTime": "2026-07-01T06:00:00",
+  "endTime": "2026-07-01T08:00:00",
+  "name": "Another Team Meeting"
+}
+
+> {%
+client.global.set("reservation4Uuid", response.body.uuid);
+client.test("Reservation in second room created successfully", function() {
+    client.assert(response.status === 201, "Response status is not 201");
+    client.assert(response.body.uuid, "Reservation UUID is missing");
+});
+%}
+
+### 13. Get all reservations (should show both reservations)
+GET http://localhost:8080/api/reservations
+
+> {%
+client.test("All reservations retrieved", function() {
+    client.assert(response.status === 200, "Response status is not 200");
+    client.assert(response.body.length >= 4, "Should return at least 4 reservations");
+    
+    // Verify all reservations exist
+    const reservations = response.body;
+    const reservation1Found = reservations.some(res => res.uuid === client.global.get("reservation1Uuid"));
+    const reservation2Found = reservations.some(res => res.uuid === client.global.get("reservation2Uuid"));
+    const reservation3Found = reservations.some(res => res.uuid === client.global.get("reservation3Uuid"));
+    const reservation4Found = reservations.some(res => res.uuid === client.global.get("reservation4Uuid"));
+    client.assert(reservation1Found, "First reservation should be in the list");
+    client.assert(reservation2Found, "Second reservation should be in the list");
+    client.assert(reservation3Found, "Third reservation should be in the list");
+    client.assert(reservation4Found, "Fourth reservation should be in the list");
+});
+%}

@@ -1,6 +1,6 @@
-# Shipmonk Application
+# Viable One Application
 
-A Spring Boot application for Shipmonk.
+A Spring Boot application for Viable One.
 
 ## Database Setup
 
@@ -39,9 +39,14 @@ mvn clean flyway:migrate
 docker-compose down -v && docker-compose up -d && mvn clean flyway:migrate
 ```
 
-## Additional Information
+## Testing
 
-- Run tests with `mvn clean test`
+### Unit Tests
+
+Run tests with `mvn clean test`
+
+### Code Quality Checks
+
 - Run checkstyle with `mvn checkstyle:checkstyle` - report will be generated in `/target/reports/checkstyle.html`
     ```bash
     open target/reports/checkstyle.html
@@ -50,3 +55,18 @@ docker-compose down -v && docker-compose up -d && mvn clean flyway:migrate
     ```bash
     open target/site/spotbugs.html
     ```
+
+### API Testing with api.http
+
+The project includes an `api.http` file for testing the REST API endpoints.
+
+## Future Improvements
+
+If I had more time, I would add the following enhancements to make the application more robust and production-ready:
+
+- Authentication & Authorization
+- Add role-based access control (admin, user, etc.)
+- Api versioning
+- Caching for frequently accessed data
+- Add Indexes to database tables for performance
+- Logging and Monitoring
