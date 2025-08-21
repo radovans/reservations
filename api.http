@@ -1,0 +1,9 @@
+### Reservation System API
+
+# Base URL for local development
+@baseUrl = http://localhost:8080
+
+### Health Check
+GET {{baseUrl}}/actuator/health
+Content-Type: application/json
+###

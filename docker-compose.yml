@@ -1,0 +1,16 @@
+services:
+  database:
+    image: postgres
+    container_name: reservation_system_db
+    restart: always
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    environment:
+      - POSTGRES_DB=reservation-system
+      - POSTGRES_USER=reservation_user
+      - POSTGRES_PASSWORD=reservation_password
+    ports:
+      - "5403:5432"
+
+volumes:
+  postgres_data:
